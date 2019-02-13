@@ -39,7 +39,14 @@ async function assumeIAMRole() {
 }
 assumeIAMRole();
 
+app.get('/Music/:artist/:album/:song', function(req, res) {
+    var key = req.path.replace(/%20/g, " ").slice(1);
 
+    var params = {Bucket: 'aws-testbucket16', Key: key, Expires: 90};
+    var url = s3.getSignedUrl('getObject', params);
+    console.log("Serving Song: " + req.params.song);
+    res.send(url);
+});
 
 app.get('/', function(req, res){
     var musicList = null;
