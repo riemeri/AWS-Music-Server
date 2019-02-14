@@ -13,6 +13,7 @@ app.use(function(req, res, next) {
 
 let sts = new AWS.STS();
 let s3;
+let playCount = 0;
 
 //***************Assuming the IAM S3AccessRole**************
 const params = {
@@ -43,13 +44,24 @@ assumeIAMRole();
 setInterval(assumeIAMRole, 43100000);
 
 app.get('/Music/:artist/:album/:song', function(req, res) {
-    var key = req.path.replace(/%20/g, " ").slice(1);
-
-    var params = {Bucket: 'aws-testbucket16', Key: key, Expires: 120};
-    var url = s3.getSignedUrl('getObject', params);
-    console.log("Serving Song: " + req.params.song);
-    res.send(url);
+    if (playCount < 30) {
+        var key = req.path.replace(/%20/g, " ").slice(1);
+        var params = {Bucket: 'aws-testbucket16', Key: key, Expires: 120};
+        var url = s3.getSignedUrl('getObject', params);
+        console.log("Serving Song: " + req.params.song);
+        playCount += 1;
+        res.send(url);
+    }
+    else {
+        console.log("Playback limit exceeded. Count: " + playCount);
+        res.send("Error: Too many playback requests per minute");
+    }
 });
+
+setInterval(function(){
+    playCount = 0;
+}, 60000);
+
 
 app.get('/', function(req, res){
     var musicList = null;
