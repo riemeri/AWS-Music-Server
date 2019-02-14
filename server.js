@@ -1,6 +1,6 @@
-var AWS = require('aws-sdk');
+const AWS = require('aws-sdk');
 const express = require('express');
-var path = require('path');
+const path = require('path');
 const app = express();
 const port = 3000;
 
@@ -11,8 +11,8 @@ app.use(function(req, res, next) {
 });
 
 
-var sts = new AWS.STS();
-var s3;
+let sts = new AWS.STS();
+let s3;
 
 //***************Assuming the IAM S3AccessRole**************
 const params = {
@@ -55,7 +55,6 @@ app.get('/', function(req, res){
     .then(function(value) {
         //console.log(value);
         res.send(value);
-        console.log('musicList sent');
     })
     .catch(function(err){
         console.log("Error: " + err);
@@ -63,11 +62,8 @@ app.get('/', function(req, res){
     
 });
 
-app.post('/', function (req, res) {
-    res.send('Got a POST request')
-});
+app.listen(port, () => console.log(`Server listening on port ${port}`))
 
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
 
 
 function getMusicList() {
@@ -83,9 +79,6 @@ function getMusicList() {
                 reject();
             }
             else { // successful response
-                console.log(typeof data.Contents);
-                //console.log(data);
-                
                 resolve(formatList(data.Contents));
             }     
         });
@@ -95,8 +88,6 @@ function getMusicList() {
 }
 
 function formatList(musicList) {
-    console.log("Printing List:")
-    //console.log(musicList);
     const songs = Object.entries(musicList);
     //console.log(songs);
     var albums = {};
@@ -134,6 +125,5 @@ function formatList(musicList) {
         }
         //console.log(data);
     }
-    console.log(artists);
     return artists;
 }
