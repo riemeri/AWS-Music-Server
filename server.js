@@ -17,7 +17,8 @@ let s3;
 //***************Assuming the IAM S3AccessRole**************
 const params = {
     RoleArn: 'arn:aws:iam::968506304545:role/S3AccessRole',
-    RoleSessionName: 'roleSession1'
+    RoleSessionName: 'roleSession1',
+    DurationSeconds: 43200
 };
 async function assumeIAMRole() {
     try {
@@ -38,6 +39,8 @@ async function assumeIAMRole() {
     }
 }
 assumeIAMRole();
+
+setInterval(assumeIAMRole, 43100000);
 
 app.get('/Music/:artist/:album/:song', function(req, res) {
     var key = req.path.replace(/%20/g, " ").slice(1);
