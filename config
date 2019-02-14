@@ -1,0 +1,7 @@
+[default]
+output = json
+region = us-east-1
+
+[profile s3admin]
+role_arn = arn:aws:iam::968506304545:role/S3AccessRole
+source_profile = default
