@@ -35,7 +35,7 @@ async function assumeIAMRole() {
             sessionToken: assumedRole.Credentials.SessionToken
         };
         const innerS3 = await new AWS.S3(accessParams);
-        const innerDoc = await new AWS.DynamoDB.DocumentClient(params);
+        const innerDoc = await new AWS.DynamoDB.DocumentClient(accessParams);
         //const sts2 = new AWS.STS(accessParams);
         s3 = innerS3;
         docClient = innerDoc;
@@ -51,7 +51,7 @@ assumeIAMRole();
 setInterval(function(){
     playCount = 0;
 }, 60000);
-setInterval(assumeIAMRole, 43100000);
+setInterval(assumeIAMRole, 43000000);
 
 //Respond to GET Request to list  genres
 app.get('/genres', function(req, res) {
@@ -163,7 +163,7 @@ app.get('/song', function(req, res) {
             }
             else {
                 var key = data.Items[0].path;
-                var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 120};
+                var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
                 var url = s3.getSignedUrl('getObject', params1);
                 console.log("Sending Song: " + songName);
                 playCount += 1;
@@ -196,7 +196,7 @@ app.get('/song/in/album', function(req, res) {
             }
             else {
                 var key = data.Items[0].path;
-                var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 120};
+                var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
                 var url = s3.getSignedUrl('getObject', params1);
                 console.log("Serving Song: " + songName);
                 playCount += 1;
