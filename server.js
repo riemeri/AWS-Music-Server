@@ -1,9 +1,12 @@
 const AWS = require('aws-sdk');
 const express = require('express');
+var bodyParser = require("body-parser");
 const path = require('path');
 const app = express();
 const port = 3000;
 
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 app.use(function(req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
@@ -52,6 +55,32 @@ setInterval(function(){
     playCount = 0;
 }, 60000);
 setInterval(assumeIAMRole, 43000000);
+
+app.post('/save-user', function(req, res) {
+    console.log("saving user...");
+    var body = req.body;
+    //console.log(req);
+    console.log(body);
+    var params = {
+        TableName: "users",
+        Item: {
+            "id": body.id,
+            "name": body.name,
+            "email": body.email
+        }
+    }
+    docClient.put(params, function(err, data) {
+        if (err) {
+            console.log(err);
+            //res.send(query);
+            res.status(400).end();
+        }
+        else {
+            res.send('user saved');
+            console.log("User Added: " + body.name);
+        }
+    });
+});
 
 //Respond to GET Request to list  genres
 app.get('/genres', function(req, res) {
