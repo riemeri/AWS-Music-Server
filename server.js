@@ -56,6 +56,36 @@ setInterval(function(){
 }, 60000);
 setInterval(assumeIAMRole, 43000000);
 
+function checkForUser(uid) {
+    var params = {
+        TableName: 'users',
+        KeyConditionExpression: 'id = :hkey',
+        ExpressionAttributeValues: {
+          ':hkey': uid
+        }
+    }
+
+    var promise1 = new Promise(function (resolve, reject) {
+		docClient.query(params, function(err, data) {
+            if (err) {
+                console.log(err);
+                reject(err);
+            }
+            else if (data.Items.length < 1) {
+                console.log("< 1");
+                reject(data);
+            }
+            else {
+                //console.log("User Exists");
+                //console.log(data.Items);
+                resolve(data);
+            }
+        });
+	});
+    return promise1;
+}
+
+
 app.post('/save-user', function(req, res) {
     console.log("saving user...");
     var body = req.body;
@@ -83,22 +113,29 @@ app.post('/save-user', function(req, res) {
 });
 
 //Respond to GET Request to list  genres
-app.get('/genres', function(req, res) {
-    var params = {
-        TableName: 'genres'
-    };
-    docClient.scan(params, function(err, data) {
-        if (err) {
-            console.log(err);
-            res.status(404).end();
-        }
-        else {
-            var genres = [];
-            for (let item of data.Items) {
-                genres.push(item.genre);
+app.get('/genres', function(req, res) {    
+    checkForUser(req.query.uid).then(function(data) {
+        var params = {
+            TableName: 'genres'
+        };
+        docClient.scan(params, function(err, data) {
+            if (err) {
+                console.log(err);
+                res.status(404).end();
             }
-            res.send(genres);
-        }
+            else {
+                var genres = [];
+                for (let item of data.Items) {
+                    genres.push(item.genre);
+                }
+                res.send(genres);
+            }
+        });
+    })
+    .catch((err) => {
+        res.status(400).end();
+        console.log("Unauthenticated access attempt. Data: ");
+        console.log(err);
     });
 });
 
@@ -176,67 +213,81 @@ app.get('/songs/for/album', function(req, res) {
 
 //Respond to GET request for url of a specific song (slower because of scan)
 app.get('/song', function(req, res) {
-    var songName = path.basename(req.query.song, '.mp3');
-    var params = {
-        TableName: 'songs',
-        FilterExpression: 'song = :value',
-        ExpressionAttributeValues: {
-            ':value': songName
+    checkForUser(req.query.uid).then(function(data1) {
+        var songName = path.basename(req.query.song, '.mp3');
+        var params = {
+            TableName: 'songs',
+            FilterExpression: 'song = :value',
+            ExpressionAttributeValues: {
+                ':value': songName
+            }
+        };
+        if (playCount < 30) {
+            docClient.scan(params, function(err, data) {
+                if (err) {
+                    console.log(err);
+                    res.status(404).end();
+                }
+                else {
+                    var key = data.Items[0].path;
+                    var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
+                    var url = s3.getSignedUrl('getObject', params1);
+                    console.log("Serving Song: " + songName + ", to: " + data1.Items[0].name);
+                    playCount += 1;
+                    res.send(url);
+                }
+            });
         }
-    };
-    if (playCount < 30) {
-        docClient.scan(params, function(err, data) {
-            if (err) {
-                console.log(err);
-                res.status(404).end();
-            }
-            else {
-                var key = data.Items[0].path;
-                var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
-                var url = s3.getSignedUrl('getObject', params1);
-                console.log("Sending Song: " + songName);
-                playCount += 1;
-                res.send(url);
-            }
-        });
-    }
-    else {
-        console.log("Playback limit exceeded. Count: " + playCount);
-        res.send("Error: Too many playback requests per minute");
-    }   
+        else {
+            console.log("Playback limit exceeded. Count: " + playCount);
+            res.send("Error: Too many playback requests per minute");
+        }  
+    })
+    .catch((err) => {
+        res.status(400).end();
+        console.log("Unauthenticated access attempt. Data: ");
+        console.log(err);
+    }); 
 });
 
 //Respond to GET request for url of a song in an album (quicker due to query)
 app.get('/song/in/album', function(req, res) {
-    var songName = path.basename(req.query.song, '.mp3');
-    var params = {
-        TableName: 'songs',
-        KeyConditionExpression: 'album = :hkey and song = :rkey',
-        ExpressionAttributeValues: {
-          ':hkey': req.query.album,
-          ':rkey': songName
+    checkForUser(req.query.uid).then(function(data1) {
+        var songName = path.basename(req.query.song, '.mp3');
+        var params = {
+            TableName: 'songs',
+            KeyConditionExpression: 'album = :hkey and song = :rkey',
+            ExpressionAttributeValues: {
+              ':hkey': req.query.album,
+              ':rkey': songName
+            }
+        };
+        if (playCount < 30) {
+            docClient.query(params, function(err, data) {
+                if (err) {
+                    console.log(err);
+                    res.send("Error: " + err);
+                }
+                else {
+                    var key = data.Items[0].path;
+                    var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
+                    var url = s3.getSignedUrl('getObject', params1);
+                    console.log("Serving Song: " + songName + ", to: " + data1.Items[0].name);
+                    playCount += 1;
+                    res.send(url);
+                }
+            });
         }
-    };
-    if (playCount < 30) {
-        docClient.query(params, function(err, data) {
-            if (err) {
-                console.log(err);
-                res.send("Error: " + err);
-            }
-            else {
-                var key = data.Items[0].path;
-                var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
-                var url = s3.getSignedUrl('getObject', params1);
-                console.log("Serving Song: " + songName);
-                playCount += 1;
-                res.send(url);
-            }
-        });
-    }
-    else {
-        console.log("Playback limit exceeded. Count: " + playCount);
-        res.send("Error: Too many playback requests per minute");
-    }    
+        else {
+            console.log("Playback limit exceeded. Count: " + playCount);
+            res.send("Error: Too many playback requests per minute");
+        }
+    })
+    .catch((err) => {
+        res.status(400).end();
+        console.log("Unauthenticated access attempt. Data: ");
+        console.log(err);
+    });    
 });
 
 
