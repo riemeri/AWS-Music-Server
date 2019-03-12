@@ -22,6 +22,10 @@ let playCount = 0;
 AWS.config.update({
     region: "us-east-1"
 });
+var sqs = new AWS.SQS();
+
+app.listen(port, () => console.log(`Server listening on port ${port}`));
+
 
 //***************Assuming the IAM S3AccessRole**************
 const params = {
@@ -110,6 +114,46 @@ app.post('/save-user', function(req, res) {
             console.log("User Added: " + body.name);
         }
     });
+});
+
+app.post('/play', function(req, res) {
+    var body = req.body;
+    var time = new Date();
+    var dateString = time.toLocaleString('en-US', {timeZone: 'America/Los_Angeles'});
+
+    var params = {
+        MessageAttributes: {
+          "Artist": {
+            DataType: "String",
+            StringValue: body.artist
+          },
+          "Album": {
+            DataType: "String",
+            StringValue: body.album
+          },
+          "Song": {
+            DataType: "String",
+            StringValue: body.song
+          },
+          "Date": {
+              DataType: "String",
+              StringValue: dateString
+          }
+        },
+        MessageBody: `Serving Song::  Artist: ${body.artist},  Album: ${body.album},  Song: ${body.song},  Date: ${dateString}`,
+        QueueUrl: "https://sqs.us-east-1.amazonaws.com/968506304545/Reporting.fifo",
+        MessageGroupId: '123416'
+      };
+
+      sqs.sendMessage(params, function(err, data) {
+        if (err) {
+          console.log("SQS Error", err);
+          res.status(400).end();
+        } else {
+            res.send("Song play recorded");
+          //console.log("Success", data.MessageId);
+        }
+      });
 });
 
 //Respond to GET Request to list  genres
@@ -230,7 +274,7 @@ app.get('/song', function(req, res) {
                 }
                 else {
                     var key = data.Items[0].path;
-                    var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
+                    var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 400};
                     var url = s3.getSignedUrl('getObject', params1);
                     console.log("Serving Song: " + songName + ", to: " + data1.Items[0].name);
                     playCount += 1;
@@ -270,7 +314,7 @@ app.get('/song/in/album', function(req, res) {
                 }
                 else {
                     var key = data.Items[0].path;
-                    var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 200};
+                    var params1 = {Bucket: 'aws-testbucket16', Key: key, Expires: 400};
                     var url = s3.getSignedUrl('getObject', params1);
                     console.log("Serving Song: " + songName + ", to: " + data1.Items[0].name);
                     playCount += 1;
@@ -291,7 +335,7 @@ app.get('/song/in/album', function(req, res) {
 });
 
 
-app.get('/Music/:artist/:album/:song', function(req, res) {
+/*app.get('/Music/:artist/:album/:song', function(req, res) {
     if (playCount < 30) {
         var key = req.path.replace(/%20/g, " ").slice(1);
         var params = {Bucket: 'aws-testbucket16', Key: key, Expires: 180};
@@ -304,10 +348,10 @@ app.get('/Music/:artist/:album/:song', function(req, res) {
         console.log("Playback limit exceeded. Count: " + playCount);
         res.send("Error: Too many playback requests per minute");
     }
-});
+});*/
 
 
-app.get('/', function(req, res){
+/*app.get('/', function(req, res){
     var musicList = null;
 
     getMusicList()
@@ -319,15 +363,11 @@ app.get('/', function(req, res){
         console.log("Error: " + err);
     });
     
-});
+});*/
 
 
 
-app.listen(port, () => console.log(`Server listening on port ${port}`))
-
-
-
-function getMusicList() {
+/*function getMusicList() {
     var params = {
         Bucket: "aws-testbucket16",
         Prefix: "Music/"
@@ -387,4 +427,4 @@ function formatList(musicList) {
         //console.log(data);
     }
     return artists;
-}
+}*/
